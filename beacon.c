@@ -3,16 +3,18 @@
 #include <ncurses.h>
 #include <unistd.h>
 
-#define MAX_HIST 20
+#define MAX_HIST 3000
 
 void draw_commands(char** commands, size_t n, int y) {
-    for(int i = 0; i < n; i++) {
+    for(int i = n; i > 0; i--) {
         if (i == y) {
             attron(COLOR_PAIR(1));
+             attron(A_BOLD);
         } else {
             attron(COLOR_PAIR(0));
+            attroff(A_BOLD);
         }
-        mvprintw(i, 0, "%s\n", commands[i]);
+        mvprintw(n-i + 2, 0, "%s\n", commands[i]);
         attroff(COLOR_PAIR(0));
         attroff(COLOR_PAIR(1));
         refresh();
@@ -67,7 +69,7 @@ int main(void) {
     system("bash -c 'history -a'");
 
     char** commands;
-    int ncoms = 0;
+    size_t ncoms = 0;
     size_t len = 0;
 
     fseek(file, 0, SEEK_END);
@@ -76,8 +78,7 @@ int main(void) {
 
     commands = (char**)malloc(sizeof(char*) * MAX_HIST);
 
-    while (ncoms < MAX_HIST) {
-        getline(&commands[ncoms], &len, file);
+    while (getline(&commands[ncoms], &len, file) != -1) {
         ncoms += 1;
     }
 
@@ -90,25 +91,27 @@ int main(void) {
     // printw("%c", ch);
     // attroff(A_BOLD);
 
-    int y = 0;
+    int y = ncoms - 1;
     int ch;
 
     draw_commands(commands, ncoms, y);
 
     while((ch = getch()) != 'q') {
-        if (ch == KEY_UP || ch == 'k') y--;
-        if (ch == KEY_DOWN || ch == 'j') y++;
+        if (ch == KEY_UP || ch == 'k') y++;
+        if (ch == KEY_DOWN || ch == 'j') y--;
 
         if (y < 0) y = 0;
-        if (y > ncoms) y = ncoms - 1;
+        if (y > ncoms - 1) y = ncoms - 1;
 
-        if (ch == 10) { 
+        // 10 is enter
+        if (ch == 10 || ch == KEY_ENTER) { 
             endwin();
             system(commands[y]);
             cleanup(commands, ncoms, file);
             return 0;
         }
 
+        mvprintw(0, 0, "%ld commands loaded\n", ncoms);
         draw_commands(commands, ncoms, y);
     }
 
